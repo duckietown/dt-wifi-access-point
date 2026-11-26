@@ -29,8 +29,10 @@ if [ "$exit_code" = "0" ] || [ "$exit_code" = "124" ] ; then
     ip addr del ${AP_ADDR}/24 dev ${INTERFACE} 2> /dev/null
 
     # a connected client keeps its address: flushing it leaves the link up with no IPv4,
-    # so nothing asks DHCP again and the robot drops off the network
-    if ip -4 addr show dev ${INTERFACE} | grep -q "inet "; then
+    # so nothing asks DHCP again and the robot drops off the network.
+    # Connected means associated (carrier) and holding an IPv4; a static address alone is not enough.
+    if [ "$(cat /sys/class/net/${INTERFACE}/carrier 2> /dev/null)" = "1" ] && \
+        ip -4 addr show dev ${INTERFACE} | grep -q "inet "; then
         echo "[INFO] Wifi client already connected, nothing to do."
     else
         # enable client mode
