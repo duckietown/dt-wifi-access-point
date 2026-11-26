@@ -25,14 +25,22 @@ fi
 if [ "$exit_code" = "0" ] || [ "$exit_code" = "124" ] ; then
     echo "[INFO] Jumper NOT detected, wifi AP is disabled, using client mode instead."
 
-    # remove IPs from device
-    ip addr flush dev ${INTERFACE}
+    # remove the address left over from AP mode
+    ip addr del ${AP_ADDR}/24 dev ${INTERFACE} 2> /dev/null
 
-    # enable client mode
-    echo "[INFO] Enabling wifi client..."
-    dt-set-trigger wifi-client restart
-    sleep 5
-    echo "[INFO] Wifi client enabled."
+    # a connected client keeps its address: flushing it leaves the link up with no IPv4,
+    # so nothing asks DHCP again and the robot drops off the network.
+    # Connected means associated (carrier) and holding an IPv4; a static address alone is not enough.
+    if [ "$(cat /sys/class/net/${INTERFACE}/carrier 2> /dev/null)" = "1" ] && \
+        ip -4 addr show dev ${INTERFACE} | grep -q "inet "; then
+        echo "[INFO] Wifi client already connected, nothing to do."
+    else
+        # enable client mode
+        echo "[INFO] Enabling wifi client..."
+        dt-set-trigger wifi-client restart
+        sleep 5
+        echo "[INFO] Wifi client enabled."
+    fi
 
     exec sleep infinity
 else
